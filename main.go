@@ -17,13 +17,14 @@ import (
 
 // CheckTemplate struct
 type CheckTemplate struct {
-	Name        string            `json:"name"`
-	Command     string            `json:"command"`
-	Arguments   []string          `json:"arguments"`
-	Options     map[string]string `json:"options"`
-	BoolOptions []string          `json:"bool_options"`
-	MatchLabels map[string]string `json:"match_labels"`
-	SensuAssets []string          `json:"sensu_assets"`
+	Name          string            `json:"name"`
+	Command       string            `json:"command"`
+	Arguments     []string          `json:"arguments"`
+	Options       map[string]string `json:"options"`
+	BoolOptions   []string          `json:"bool_options"`
+	MatchLabels   map[string]string `json:"match_labels"`
+	ExcludeLabels map[string]string `json:"exclude_labels"`
+	SensuAssets   []string          `json:"sensu_assets"`
 }
 
 // Auth represents the authentication info
@@ -228,7 +229,10 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 		return event, err
 	}
 	for _, v := range checkTemplate {
-		if searchMatchLabels(event, v.MatchLabels) {
+		if searchLabels(event, v.ExcludeLabels) {
+			return event, nil
+		}
+		if searchLabels(event, v.MatchLabels) {
 			// fmt.Printf("Check Name: %s\n", v.Name)
 
 			var flags, args, boolFlags string
@@ -359,7 +363,7 @@ func extractLabels(event *types.Event, label string) (string, bool) {
 	return labelFound, true
 }
 
-func searchMatchLabels(event *types.Event, labels map[string]string) bool {
+func searchLabels(event *types.Event, labels map[string]string) bool {
 	if len(labels) == 0 {
 		return false
 	}
@@ -444,8 +448,8 @@ func authenticate() (Auth, error) {
 func postCheck(auth Auth, name, command, namespace, entity string, assets []string) error {
 	client := http.DefaultClient
 	client.Transport = http.DefaultTransport
-	// /api/core/v2/namespaces/NAMESPACE/checks
-	url := fmt.Sprintf("%s://%s:%d/api/core/v2/namespaces/%s/checks", mutatorConfig.Protocol, mutatorConfig.APIBackendHost, mutatorConfig.APIBackendPort, namespace)
+	// /api/core/v2/namespaces/NAMESPACE/checks/:check_name and PUT
+	url := fmt.Sprintf("%s://%s:%d/api/core/v2/namespaces/%s/checks/%s", mutatorConfig.Protocol, mutatorConfig.APIBackendHost, mutatorConfig.APIBackendPort, namespace, name)
 
 	if mutatorConfig.Secure {
 		client.Transport.(*http.Transport).TLSClientConfig = &tlsConfig
@@ -469,7 +473,7 @@ func postCheck(auth Auth, name, command, namespace, entity string, assets []stri
 	// s, err := json.MarshalIndent(check, "", "\t")
 	// fmt.Println(string(s), url)
 	encoded, _ := json.Marshal(check)
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(encoded))
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(encoded))
 	if err != nil {
 		return fmt.Errorf("Failed to post event to %s failed: %v", url, err)
 	}

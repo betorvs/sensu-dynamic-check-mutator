@@ -8,6 +8,7 @@
 - [Overview](#overview)
 - [Usage](#usage)
 - [Configuration](#configuration)
+  - [Json details](#json-details)
   - [Asset registration](#asset-registration)
   - [Mutator definition](#mutator-definition)
 - [Installation from source](#installation-from-source)
@@ -69,12 +70,17 @@ We add a json inside `--check-config`:
     "match_labels": {
         "sensu-alertmanager-events": "owner"
     },
+    "exclude_labels": {
+        "alertname": "TargetDown"
+    },
     "sensu_assets": [
         "kubectl"
     ]
   }
 ]
 ```
+
+   
 
 In these example we use one event imported by [sensu-alertmanager-events][5] and we installed kubectl using assets.
 
@@ -97,6 +103,17 @@ And it will create one annotation like:
 
 And one check called: `KubeDaemonSetRolloutStuck-kube-system-filebeat-describe-resource-dynamic` with command `${{assetPath \"kubectl\"}}/kubernetes/client/bin/kubectl describe --namespace kube-system daemonset filebeat-audit`.
 
+### Json details
+
+| Field | What it does | Example |
+| ----- | ------------ | ------- |
+| bool_args | add flags without any argument| `-k` |
+| arguments | add label.key label.value inside command | `deployment ingress-nginx` |
+| match_labels | If found these label.key=label.value it changed the event | - |
+| exclude_labels | Use to exclude some label.key=labe.value that doenst match with your dynamic check | - |  
+
+
+
 
 ### Asset registration
 
@@ -112,6 +129,8 @@ If you're using an earlier version of sensuctl, you can find the asset on the [B
 
 ### Mutator definition
 
+Maybe is important to add authetication configs `-u dynamic -P ${MUTATOR_PASS} -B sensu-api.k8s.infra.ppro.com -s -t /$PATH_TO_CERTIFICATE/ca.pem`
+
 ```yml
 ---
 type: Mutator
@@ -121,7 +140,7 @@ metadata:
   namespace: default
 spec:
   command: >-
-    sensu-dynamic-check-mutator -c "[{\"name\":\"describe-resource\",\"command\":\"${{assetPath \\\"kubectl\\\"}}/kubernetes/client/bin/kubectl describe\",\"bool_args\":[\"--no-headers\"],\"arguments\":[\"daemonset\",\"deployment\",\"pod\",\"statefulset\",\"node\"],\"options\":{\"--namespace\":\"namespace\"},\"match_labels\":{\"sensu-alertmanager-events\":\"owner\"},\"sensu_assets\":[\"kubectl\"]}]"
+    sensu-dynamic-check-mutator -c "[{\"name\":\"describe-resource\",\"command\":\"\${{assetPath \\\"kubectl\\\"}}/kubernetes/client/bin/kubectl describe\",\"bool_args\":[\"--no-headers\"],\"arguments\":[\"daemonset\",\"deployment\",\"pod\",\"statefulset\",\"node\"],\"options\":{\"--namespace\":\"namespace\"},\"match_labels\":{\"sensu-alertmanager-events\":\"owner\"},\"match_labels\":{\"alertname\":\"TargetDown\"},\"sensu_assets\":[\"kubectl\"]}]"
   runtime_assets:
   - betorvs/sensu-dynamic-check-mutator
 ```

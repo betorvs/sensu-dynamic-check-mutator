@@ -17,14 +17,14 @@ import (
 
 // CheckTemplate struct
 type CheckTemplate struct {
-	Name          string            `json:"name"`
-	Command       string            `json:"command"`
-	Arguments     []string          `json:"arguments"`
-	Options       map[string]string `json:"options"`
-	BoolOptions   []string          `json:"bool_options"`
-	MatchLabels   map[string]string `json:"match_labels"`
-	ExcludeLabels map[string]string `json:"exclude_labels"`
-	SensuAssets   []string          `json:"sensu_assets"`
+	Name          string              `json:"name"`
+	Command       string              `json:"command"`
+	Arguments     []string            `json:"arguments"`
+	Options       map[string]string   `json:"options"`
+	BoolOptions   []string            `json:"bool_options"`
+	MatchLabels   map[string]string   `json:"match_labels"`
+	ExcludeLabels []map[string]string `json:"exclude_labels"`
+	SensuAssets   []string            `json:"sensu_assets"`
 }
 
 // Auth represents the authentication info
@@ -229,8 +229,10 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 		return event, err
 	}
 	for _, v := range checkTemplate {
-		if searchLabels(event, v.ExcludeLabels) {
-			return event, nil
+		for _, e := range v.ExcludeLabels {
+			if searchLabels(event, e) {
+				return event, nil
+			}
 		}
 		if searchLabels(event, v.MatchLabels) {
 			// fmt.Printf("Check Name: %s\n", v.Name)

@@ -70,9 +70,14 @@ We add a json inside `--check-config`:
     "match_labels": {
         "sensu-alertmanager-events": "owner"
     },
-    "exclude_labels": {
+    "exclude_labels": [
+      {
         "alertname": "TargetDown"
-    },
+      },
+      {
+        "alertname": "KubeVersionMismatch"
+      },
+    ],
     "sensu_assets": [
         "kubectl"
     ]
@@ -140,7 +145,7 @@ metadata:
   namespace: default
 spec:
   command: >-
-    sensu-dynamic-check-mutator -c "[{\"name\":\"describe-resource\",\"command\":\"\${{assetPath \\\"kubectl\\\"}}/kubernetes/client/bin/kubectl describe\",\"bool_args\":[\"--no-headers\"],\"arguments\":[\"daemonset\",\"deployment\",\"pod\",\"statefulset\",\"node\"],\"options\":{\"--namespace\":\"namespace\"},\"match_labels\":{\"sensu-alertmanager-events\":\"owner\"},\"match_labels\":{\"alertname\":\"TargetDown\"},\"sensu_assets\":[\"kubectl\"]}]"
+    sensu-dynamic-check-mutator -c "[{\"name\":\"describe-resource\",\"command\":\"\${{assetPath \\\"kubectl\\\"}}/kubernetes/client/bin/kubectl describe\",\"bool_args\":[\"--no-headers\"],\"arguments\":[\"daemonset\",\"deployment\",\"pod\",\"statefulset\",\"node\"],\"options\":{\"--namespace\":\"namespace\"},\"match_labels\":{\"sensu-alertmanager-events\":\"owner\"},\"exclude_labels\":[{\"alertname\":\"TargetDown\"},{"alertname": "KubeVersionMismatch"}],\"sensu_assets\":[\"kubectl\"]}]"
   runtime_assets:
   - betorvs/sensu-dynamic-check-mutator
 ```

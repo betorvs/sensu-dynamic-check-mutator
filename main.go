@@ -236,32 +236,42 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 		}
 		if searchLabels(event, v.MatchLabels) {
 			// fmt.Printf("Check Name: %s\n", v.Name)
-
+			command := v.Command
 			var flags, args, boolFlags string
 			if v.Options != nil {
 				tempArgs := make(map[string]string)
+				count := 0
 				for key, value := range v.Options {
 					temp, valid := extractLabels(event, value)
 					if valid {
 						tempArgs[key] = temp
+						count++
 					}
+				}
+				if len(v.Options) < count {
+					return event, nil
 				}
 				flags = parseCommandOptions(tempArgs)
 			}
 			if len(v.Arguments) != 0 {
 				tempArgs := make(map[string]string)
+				count := 0
 				for _, value := range v.Arguments {
 					temp, valid := extractLabels(event, value)
 					if valid {
 						tempArgs[value] = temp
+						count++
 					}
+				}
+				if count < 1 {
+					return event, nil
 				}
 				args = parseCommandOptions(tempArgs)
 			}
 			if len(v.BoolOptions) != 0 {
 				boolFlags = parseCommandBoolFlags(v.BoolOptions)
 			}
-			command := v.Command
+
 			if flags != "" {
 				command += flags
 			}
@@ -477,7 +487,7 @@ func postCheck(auth Auth, name, command, namespace, entity string, assets []stri
 	encoded, _ := json.Marshal(check)
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(encoded))
 	if err != nil {
-		return fmt.Errorf("Failed to post event to %s failed: %v", url, err)
+		return fmt.Errorf("Failed to put event to %s failed: %v", url, err)
 	}
 	if len(mutatorConfig.APIBackendKey) == 0 {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", auth.AccessToken))
@@ -488,10 +498,10 @@ func postCheck(auth Auth, name, command, namespace, entity string, assets []stri
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("error executing POST request for %s: %v", url, err)
+		return fmt.Errorf("error executing PUT request for %s: %v", url, err)
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("POST of event to %s failed with status %v\nevent: %s", url, resp.Status, string(encoded))
+		return fmt.Errorf("PUT of event to %s failed with status %v\nevent: %s", url, resp.Status, string(encoded))
 	}
 
 	defer resp.Body.Close()

@@ -76,7 +76,7 @@ We add a json inside `--check-config`:
       },
       {
         "alertname": "KubeVersionMismatch"
-      },
+      }
     ],
     "sensu_assets": [
         "kubectl"
@@ -84,6 +84,8 @@ We add a json inside `--check-config`:
   }
 ]
 ```
+
+In this example, to change the event, this mutator need to find a label called `namespace`, and need to find at least one of the arguments array, like label `deployment`. Then it will create a check.command: `${{assetPath "kubectl"}}/kubernetes/client/bin/kubectl describe --namespace default deployment nginx`.
 
    
 
@@ -103,19 +105,20 @@ spec:
 And it will create one annotation like:
 
 ```
-"io.sensu.remediation.config.actions": "[{\"request\":\"KubeDaemonSetRolloutStuck-kube-system-filebeat-describe-resource-dynamic\",\"occurrences\":[1],\"severities\":[2],\"subscriptions\":[\"entity:k8s.dev.local\"]}]"
+"io.sensu.remediation.config.actions": "[{\"request\":\"KubeDeploymentReplicasMismatch-default-nginx-describe-resource-dynamic\",\"occurrences\":[1],\"severities\":[2],\"subscriptions\":[\"entity:k8s.dev.local\"]}]"
 ```
 
-And one check called: `KubeDaemonSetRolloutStuck-kube-system-filebeat-describe-resource-dynamic` with command `${{assetPath \"kubectl\"}}/kubernetes/client/bin/kubectl describe --namespace kube-system daemonset filebeat-audit`.
+And one check called: `KubeDeploymentReplicasMismatch-default-nginx-describe-resource-dynamic` with command `${{assetPath \"kubectl\"}}/kubernetes/client/bin/kubectl describe --namespace default daemonset nginx`.
 
 ### Json details
 
 | Field | What it does | Example |
 | ----- | ------------ | ------- |
-| bool_args | add flags without any argument| `-k` |
-| arguments | add label.key label.value inside command | `deployment ingress-nginx` |
-| match_labels | If found these label.key=label.value it changed the event | - |
-| exclude_labels | Use to exclude some label.key=labe.value that doenst match with your dynamic check | - |  
+| bool_args | add flags without any argument. Always include any configured flags | `-k` |
+| arguments | add label.key label.value inside command. Should match at least one. If not, will return event without any change | `deployment ingress-nginx` |
+| options | should match all configured to change the event. Use it when you need to use a different flag but with some content from a label |To use a label.value in the flag `--namespace`, use it: `{"--namespace": "namespace"}`
+| match_labels | If found these label.key=label.value it will change the event | - |
+| exclude_labels | Use this array to exclude some label.key=label.value that doenst match with your dynamic check | - |  
 
 
 

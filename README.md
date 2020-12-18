@@ -8,9 +8,11 @@
 - [Overview](#overview)
 - [Usage](#usage)
 - [Configuration](#configuration)
+    - [kubectl as asset](#kubectl-as-asset)
+    - [http-nginx check example](#http-nginx)
   - [Json details](#json-details)
-  - [Asset registration](#asset-registration)
-  - [Mutator definition](#mutator-definition)
+- [Asset registration](#asset-registration)
+- [Mutator definition](#mutator-definition)
 - [Installation from source](#installation-from-source)
 - [Additional notes](#additional-notes)
 - [Contributing](#contributing)
@@ -63,7 +65,7 @@ We add a json inside `--check-config`:
     "bool_args": [
       "--no-headers"
     ],
-    "arguments": ["daemonset","deployment","pod","statefulset","node"],
+    "arguments": ["daemonset","deployment","pod","statefulset"],
     "options": {
         "--namespace": "namespace"
     },
@@ -80,14 +82,52 @@ We add a json inside `--check-config`:
     ],
     "sensu_assets": [
         "kubectl"
-    ]
+    ],
+    "occurrences": [1],
+    "severities": [2],
+  },
+  {
+    "name": "systemctl-status",
+    "command": "sudo systemctl",
+    "options": {
+        "status": "application"
+    },
+    "match_labels": {
+        "systemd": "true"
+    },
+    "occurrences": [1]
+  },
+  {
+    "name": "systemctl-restart",
+    "command": "sudo systemctl",
+    "options": {
+        "restart": "application"
+    },
+    "match_labels": {
+        "systemd": "true"
+    },
+    "occurrences": [3]
   }
 ]
 ```
 
 In this example, to change the event, this mutator need to find a label called `namespace`, and need to find at least one of the arguments array, like label `deployment`. Then it will create a check.command: `${{assetPath "kubectl"}}/kubernetes/client/bin/kubectl describe --namespace default deployment nginx`.
 
+And it will create one annotation like:
+
+```
+"io.sensu.remediation.config.actions": "[{\"request\":\"KubeDeploymentReplicasMismatch-default-nginx-describe-resource-dynamic\",\"occurrences\":[1],\"severities\":[2],\"subscriptions\":[\"entity:k8s.dev.local\"]}]"
+```
+
+And one check called: `KubeDeploymentReplicasMismatch-default-nginx-describe-resource-dynamic` with command `${{assetPath \"kubectl\"}}/kubernetes/client/bin/kubectl describe --namespace default daemonset nginx`.
+
+
+In `systemctl-status` and `systemctl-restart` if this mutator found two labels `systemd:true` and `application:nginx` as example for a check called `http-nginx`, it will create two checks in Sensu Backend called `http-nginx-systemctl-status-dynamic` and `http-nginx-systemctl-restart-dynamic` both running a `sudo systemctl [status|restart] nginx` command and it will add the following annotation: 
+```yml
+"io.sensu.remediation.config.actions": "[{\"request\":\"http-nginx-systemctl-status-dynamic\",\"occurrences\":[1],\"severities\":[2],\"subscriptions\":[\"entity:systemd-ubuntu\"]},{\"request\":\"http-nginx-systemctl-restart-dynamic\",\"occurrences\":[3],\"severities\":[2],\"subscriptions\":[\"entity:systemd-ubuntu\"]}]"
+```
    
+#### kubectl as asset
 
 In these example we use one event imported by [sensu-alertmanager-events][5] and we installed kubectl using assets.
 
@@ -102,13 +142,28 @@ spec:
   url: https://dl.k8s.io/v1.20.0/kubernetes-client-linux-amd64.tar.gz
 ```
 
-And it will create one annotation like:
+#### http-nginx 
 
-```
-"io.sensu.remediation.config.actions": "[{\"request\":\"KubeDeploymentReplicasMismatch-default-nginx-describe-resource-dynamic\",\"occurrences\":[1],\"severities\":[2],\"subscriptions\":[\"entity:k8s.dev.local\"]}]"
+```yml
+type: Check
+api_version: core/v2
+metadata:
+  name: http-nginx
+  namespace: default
+spec:
+  command: check-http.rb -u http://127.0.0.1 -t 5
+  handlers:
+  - default
+  - remediation
+  interval: 60
+  publish: true
+  runtime_assets:
+  - sensu-ruby-runtime
+  - sensu-plugins-http
+  subscriptions:
+  - ubuntu
 ```
 
-And one check called: `KubeDeploymentReplicasMismatch-default-nginx-describe-resource-dynamic` with command `${{assetPath \"kubectl\"}}/kubernetes/client/bin/kubectl describe --namespace default daemonset nginx`.
 
 ### Json details
 
@@ -119,6 +174,8 @@ And one check called: `KubeDeploymentReplicasMismatch-default-nginx-describe-res
 | options | should match all configured to change the event. Use it when you need to use a different flag but with some content from a label |To use a label.value in the flag `--namespace`, use it: `{"--namespace": "namespace"}`
 | match_labels | If found these label.key=label.value it will change the event | - |
 | exclude_labels | Use this array to exclude some label.key=label.value that doenst match with your dynamic check | - |  
+| occurrences | same occurrences field in [sensu-remediation-handler][4] | default: `[]int{1}` |
+| severities | same severities field in [sensu-remediation-handler][4] | default: `[]int{2}` |
 
 
 

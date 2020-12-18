@@ -25,6 +25,8 @@ type CheckTemplate struct {
 	MatchLabels   map[string]string   `json:"match_labels"`
 	ExcludeLabels []map[string]string `json:"exclude_labels"`
 	SensuAssets   []string            `json:"sensu_assets"`
+	Occurrences   []int               `json:"occurrences"`
+	Severities    []int               `json:"severities"`
 }
 
 // Auth represents the authentication info
@@ -228,6 +230,7 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 	if err != nil {
 		return event, err
 	}
+	remediations := []RemediationConfig{}
 	for _, v := range checkTemplate {
 		for _, e := range v.ExcludeLabels {
 			if searchLabels(event, e) {
@@ -248,7 +251,7 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 						count++
 					}
 				}
-				if len(v.Options) < count {
+				if len(v.Options) != count {
 					return event, nil
 				}
 				flags = parseCommandOptions(tempArgs)
@@ -300,32 +303,40 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 			if err != nil {
 				return event, err
 			}
-
-			remediation := []RemediationConfig{
-				{
-					Request:       tempName,
-					Occurrences:   []int{1},
-					Severities:    []int{2},
-					Subscriptions: []string{entity},
-				},
+			occurrence := []int{1}
+			severity := []int{2}
+			if len(v.Occurrences) != 0 {
+				occurrence = v.Occurrences
 			}
-			s, _ := json.Marshal(remediation)
-			// fmt.Println(string(s))
-			annotations := make(map[string]string)
-			annotations["io.sensu.remediation.config.actions"] = string(s)
-			// copy all annotations from event.check
-			if event.Check.Annotations != nil {
-				for k, v := range event.Check.Annotations {
-					annotations[k] = v
-				}
+			if len(v.Severities) != 0 {
+				severity = v.Severities
 			}
-			// add new annotations map with grafana URLs
-			event.Check.Annotations = annotations
+			remediation := RemediationConfig{
+				Request:       tempName,
+				Occurrences:   occurrence,
+				Severities:    severity,
+				Subscriptions: []string{entity},
+			}
+			remediations = append(remediations, remediation)
 
-			// fmt.Println(command)
 		}
 
 	}
+
+	s, _ := json.Marshal(remediations)
+	// fmt.Println(string(s))
+	annotations := make(map[string]string)
+	annotations["io.sensu.remediation.config.actions"] = string(s)
+	// copy all annotations from event.check
+	if event.Check.Annotations != nil {
+		for k, v := range event.Check.Annotations {
+			annotations[k] = v
+		}
+	}
+	// add new annotations map with grafana URLs
+	event.Check.Annotations = annotations
+
+	// fmt.Println(command)
 
 	return event, nil
 }

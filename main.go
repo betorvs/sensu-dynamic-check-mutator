@@ -50,6 +50,7 @@ type Config struct {
 	CheckConfig                  string
 	CommandArgumentsTemplate     string
 	CommandBoolArgumentsTemplate string
+	CommandHandler               string
 	APIBackendPass               string
 	APIBackendUser               string
 	APIBackendKey                string
@@ -108,7 +109,7 @@ var (
 			Shorthand: "",
 			Default:   "default",
 			Usage:     "Handler used to post the result",
-			Value:     &mutatorConfig.CommandBoolArgumentsTemplate,
+			Value:     &mutatorConfig.CommandHandler,
 		},
 		{
 			Path:      "api-backend-user",
@@ -271,6 +272,7 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 				}
 				args = parseCommandOptions(tempArgs)
 			}
+
 			if len(v.BoolOptions) != 0 {
 				boolFlags = parseCommandBoolFlags(v.BoolOptions)
 			}
@@ -324,7 +326,6 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 	}
 
 	s, _ := json.Marshal(remediations)
-	// fmt.Println(string(s))
 	annotations := make(map[string]string)
 	annotations["io.sensu.remediation.config.actions"] = string(s)
 	// copy all annotations from event.check
@@ -335,8 +336,6 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 	}
 	// add new annotations map with grafana URLs
 	event.Check.Annotations = annotations
-
-	// fmt.Println(command)
 
 	return event, nil
 }
@@ -492,7 +491,6 @@ func postCheck(auth Auth, name, command, namespace, entity string, assets []stri
 			CreatedBy: mutatorConfig.Name,
 		},
 	}
-
 	// s, err := json.MarshalIndent(check, "", "\t")
 	// fmt.Println(string(s), url)
 	encoded, _ := json.Marshal(check)

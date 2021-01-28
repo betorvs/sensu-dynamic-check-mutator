@@ -51,6 +51,7 @@ Flags:
   -t, --trusted-ca-file string                   TLS CA certificate bundle in PEM format
 
 Use "sensu-dynamic-check-mutator [command] --help" for more information about a command.
+
 ```
 
 ## Configuration
@@ -173,7 +174,7 @@ spec:
 | arguments | add label.key label.value inside command. Should match at least one. If not, will return event without any change | `deployment ingress-nginx` |
 | options | should match all configured to change the event. Use it when you need to use a different flag but with some content from a label |To use a label.value in the flag `--namespace`, use it: `{"--namespace": "namespace"}`
 | match_labels | If found these label.key=label.value it will change the event | - |
-| exclude_labels | Use this array to exclude some label.key=label.value that doenst match with your dynamic check | - |  
+| exclude_labels | Use this array to exclude some label.key=label.value that doesnt match with your dynamic check | - |  
 | occurrences | same occurrences field in [sensu-remediation-handler][4] | default: `[]int{1}` |
 | severities | same severities field in [sensu-remediation-handler][4] | default: `[]int{2}` |
 

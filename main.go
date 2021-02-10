@@ -481,6 +481,7 @@ func postCheck(auth Auth, name, command, namespace, entity string, assets []stri
 		Command:       command,
 		Interval:      uint32(10),
 		Publish:       false,
+		Timeout:       uint32(10),
 		RuntimeAssets: assets,
 		ObjectMeta: v2.ObjectMeta{
 			Name:      name,

@@ -17,16 +17,20 @@ import (
 
 // CheckTemplate struct
 type CheckTemplate struct {
-	Name          string              `json:"name"`
-	Command       string              `json:"command"`
-	Arguments     []string            `json:"arguments"`
-	Options       map[string]string   `json:"options"`
-	BoolOptions   []string            `json:"bool_options"`
-	MatchLabels   map[string]string   `json:"match_labels"`
-	ExcludeLabels []map[string]string `json:"exclude_labels"`
-	SensuAssets   []string            `json:"sensu_assets"`
-	Occurrences   []int               `json:"occurrences"`
-	Severities    []int               `json:"severities"`
+	Name            string              `json:"name"`
+	Command         string              `json:"command"`
+	Arguments       []string            `json:"arguments"`
+	Options         map[string]string   `json:"options"`
+	BoolOptions     []string            `json:"bool_options"`
+	MatchLabels     map[string]string   `json:"match_labels"`
+	ExcludeLabels   []map[string]string `json:"exclude_labels"`
+	SensuAssets     []string            `json:"sensu_assets"`
+	Occurrences     []int               `json:"occurrences"`
+	Severities      []int               `json:"severities"`
+	Publish         bool                `json:"publish"`
+	Interval        int                 `json:"interval"`
+	Subscription    string              `json:"subscription"`
+	NameSuffixLabel string              `json:"name_suffix"`
 }
 
 // Auth represents the authentication info
@@ -287,6 +291,12 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 				command += boolFlags
 			}
 			tempName := fmt.Sprintf("%s-%s-%s", event.Check.Name, v.Name, mutatorConfig.DefaultCheckSuffixName)
+			if v.NameSuffixLabel != "" {
+				temp, valid := extractLabels(event, v.NameSuffixLabel)
+				if valid {
+					tempName = fmt.Sprintf("%s-%s-%s-%s", event.Check.Name, v.Name, temp, mutatorConfig.DefaultCheckSuffixName)
+				}
+			}
 			var autherr error
 			auth := Auth{}
 			if len(mutatorConfig.APIBackendKey) == 0 {
@@ -301,26 +311,39 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 			if len(v.SensuAssets) != 0 {
 				assets = v.SensuAssets
 			}
-			err := postCheck(auth, tempName, command, event.Namespace, entity, assets)
+			publish := false
+			interval := 10
+			if v.Publish {
+				publish = v.Publish
+			}
+			if v.Interval != 0 {
+				interval = v.Interval
+			}
+			var subscription string
+			if v.Subscription != "" {
+				subscription = v.Subscription
+			}
+			err := postCheck(auth, tempName, command, event.Namespace, entity, subscription, assets, publish, interval)
 			if err != nil {
 				return event, err
 			}
-			occurrence := []int{1}
-			severity := []int{2}
-			if len(v.Occurrences) != 0 {
-				occurrence = v.Occurrences
+			if !publish {
+				occurrence := []int{1}
+				severity := []int{2}
+				if len(v.Occurrences) != 0 {
+					occurrence = v.Occurrences
+				}
+				if len(v.Severities) != 0 {
+					severity = v.Severities
+				}
+				remediation := RemediationConfig{
+					Request:       tempName,
+					Occurrences:   occurrence,
+					Severities:    severity,
+					Subscriptions: []string{entity},
+				}
+				remediations = append(remediations, remediation)
 			}
-			if len(v.Severities) != 0 {
-				severity = v.Severities
-			}
-			remediation := RemediationConfig{
-				Request:       tempName,
-				Occurrences:   occurrence,
-				Severities:    severity,
-				Subscriptions: []string{entity},
-			}
-			remediations = append(remediations, remediation)
-
 		}
 
 	}
@@ -467,7 +490,7 @@ func authenticate() (Auth, error) {
 }
 
 // post check to sensu-backend-api
-func postCheck(auth Auth, name, command, namespace, entity string, assets []string) error {
+func postCheck(auth Auth, name, command, namespace, entity, subscription string, assets []string, publish bool, interval int) error {
 	client := http.DefaultClient
 	client.Transport = http.DefaultTransport
 	// /api/core/v2/namespaces/NAMESPACE/checks/:check_name and PUT
@@ -476,11 +499,15 @@ func postCheck(auth Auth, name, command, namespace, entity string, assets []stri
 	if mutatorConfig.Secure {
 		client.Transport.(*http.Transport).TLSClientConfig = &tlsConfig
 	}
+	subs := entity
+	if subscription != "" {
+		subs = subscription
+	}
 	check := &v2.Check{
-		Subscriptions: []string{entity},
+		Subscriptions: []string{subs},
 		Command:       command,
-		Interval:      uint32(15),
-		Publish:       false,
+		Interval:      uint32(interval),
+		Publish:       publish,
 		Timeout:       uint32(10),
 		RuntimeAssets: assets,
 		ObjectMeta: v2.ObjectMeta{

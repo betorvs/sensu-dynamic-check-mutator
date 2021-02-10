@@ -177,6 +177,10 @@ spec:
 | exclude_labels | Use this array to exclude some label.key=label.value that doesnt match with your dynamic check | - |  
 | occurrences | same occurrences field in [sensu-remediation-handler][4] | default: `[]int{1}` |
 | severities | same severities field in [sensu-remediation-handler][4] | default: `[]int{2}` |
+| publish | bool field. If it is enabled it will not send any information to sensu-remediation-handler | default: `false` |
+| interval | integer field | default: `10` |
+| subscription | string field used to overwrite subscription used in check definition created by sensu-dynamic-check-mutator| default: `""` |
+| name_suffix | string field append in check name a label.value | default: `""` | 
 
 
 

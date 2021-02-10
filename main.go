@@ -479,7 +479,7 @@ func postCheck(auth Auth, name, command, namespace, entity string, assets []stri
 	check := &v2.Check{
 		Subscriptions: []string{entity},
 		Command:       command,
-		Interval:      uint32(10),
+		Interval:      uint32(15),
 		Publish:       false,
 		Timeout:       uint32(10),
 		RuntimeAssets: assets,

@@ -32,6 +32,7 @@ type CheckTemplate struct {
 	Subscription    string              `json:"subscription"`
 	NameSuffixLabel string              `json:"name_suffix"`
 	ProxyEntityID   string              `json:"proxy_entity_id"`
+	SensuHandlers   []string            `json:"sensu_handlers"`
 }
 
 // Auth represents the authentication info
@@ -331,7 +332,11 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 					proxyEntity = temp
 				}
 			}
-			err := postCheck(auth, tempName, command, event.Namespace, entity, subscription, proxyEntity, assets, publish, interval)
+			handler := []string{"default"}
+			if len(v.SensuHandlers) != 0 {
+				handler = v.SensuHandlers
+			}
+			err := postCheck(auth, tempName, command, event.Namespace, entity, subscription, proxyEntity, assets, handler, publish, interval)
 			if err != nil {
 				return event, err
 			}
@@ -498,7 +503,7 @@ func authenticate() (Auth, error) {
 }
 
 // post check to sensu-backend-api
-func postCheck(auth Auth, name, command, namespace, entity, subscription, proxyEntity string, assets []string, publish bool, interval int) error {
+func postCheck(auth Auth, name, command, namespace, entity, subscription, proxyEntity string, handlers, assets []string, publish bool, interval int) error {
 	client := http.DefaultClient
 	client.Transport = http.DefaultTransport
 	// /api/core/v2/namespaces/NAMESPACE/checks/:check_name and PUT
@@ -518,6 +523,7 @@ func postCheck(auth Auth, name, command, namespace, entity, subscription, proxyE
 		Publish:       publish,
 		Timeout:       uint32(10),
 		RuntimeAssets: assets,
+		Handlers:      handlers,
 		ObjectMeta: v2.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,

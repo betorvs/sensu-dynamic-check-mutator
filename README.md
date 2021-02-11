@@ -182,6 +182,7 @@ spec:
 | subscription | string field used to overwrite subscription used in check definition created by sensu-dynamic-check-mutator| default: `""` |
 | name_suffix | string field append in check name a label.value | default: `""` | 
 | proxy_entity_id | string field used in check.proxy_entity_id based on label.value | default: `""` | 
+| sensu_handlers | []string used to send handler with dynamic check created | default: `[]string{"default"}` |
 
 
 

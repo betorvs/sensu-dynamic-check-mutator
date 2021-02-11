@@ -336,7 +336,7 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 			if len(v.SensuHandlers) != 0 {
 				handler = v.SensuHandlers
 			}
-			err := postCheck(auth, tempName, command, event.Namespace, entity, subscription, proxyEntity, assets, handler, publish, interval)
+			err := postCheck(auth, tempName, command, event.Namespace, entity, subscription, proxyEntity, handler, assets, publish, interval)
 			if err != nil {
 				return event, err
 			}

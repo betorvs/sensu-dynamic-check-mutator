@@ -326,7 +326,10 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 			}
 			var proxyEntity string
 			if v.ProxyEntityID != "" {
-				proxyEntity = v.ProxyEntityID
+				temp, valid := extractLabels(event, v.ProxyEntityID)
+				if valid {
+					proxyEntity = temp
+				}
 			}
 			err := postCheck(auth, tempName, command, event.Namespace, entity, subscription, proxyEntity, assets, publish, interval)
 			if err != nil {

@@ -31,6 +31,7 @@ type CheckTemplate struct {
 	Interval        int                 `json:"interval"`
 	Subscription    string              `json:"subscription"`
 	NameSuffixLabel string              `json:"name_suffix"`
+	ProxyEntityID   string              `json:"proxy_entity_id"`
 }
 
 // Auth represents the authentication info
@@ -323,7 +324,11 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 			if v.Subscription != "" {
 				subscription = v.Subscription
 			}
-			err := postCheck(auth, tempName, command, event.Namespace, entity, subscription, assets, publish, interval)
+			var proxyEntity string
+			if v.ProxyEntityID != "" {
+				proxyEntity = v.ProxyEntityID
+			}
+			err := postCheck(auth, tempName, command, event.Namespace, entity, subscription, proxyEntity, assets, publish, interval)
 			if err != nil {
 				return event, err
 			}
@@ -490,7 +495,7 @@ func authenticate() (Auth, error) {
 }
 
 // post check to sensu-backend-api
-func postCheck(auth Auth, name, command, namespace, entity, subscription string, assets []string, publish bool, interval int) error {
+func postCheck(auth Auth, name, command, namespace, entity, subscription, proxyEntity string, assets []string, publish bool, interval int) error {
 	client := http.DefaultClient
 	client.Transport = http.DefaultTransport
 	// /api/core/v2/namespaces/NAMESPACE/checks/:check_name and PUT
@@ -518,6 +523,9 @@ func postCheck(auth Auth, name, command, namespace, entity, subscription string,
 			},
 			CreatedBy: mutatorConfig.Name,
 		},
+	}
+	if proxyEntity != "" {
+		check.ProxyEntityName = proxyEntity
 	}
 	// s, err := json.MarshalIndent(check, "", "\t")
 	// fmt.Println(string(s), url)

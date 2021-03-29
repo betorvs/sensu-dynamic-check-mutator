@@ -67,6 +67,7 @@ type Config struct {
 	InsecureSkipVerify           bool
 	Protocol                     string
 	DefaultCheckSuffixName       string
+	RemediationEventAnnotation   string
 }
 
 var (
@@ -197,6 +198,15 @@ var (
 			Default:   "dynamic",
 			Usage:     "Default suffix name for unpublished checks",
 			Value:     &mutatorConfig.DefaultCheckSuffixName,
+		},
+		{
+			Path:      "remediation-event-annotation",
+			Env:       "",
+			Argument:  "remediation-event-annotation",
+			Shorthand: "",
+			Default:   "remediation-event-alias",
+			Usage:     "Add an annotation in dynamic check created like remediation-event-alias: event.Entity.Name/event.Check.Name",
+			Value:     &mutatorConfig.RemediationEventAnnotation,
 		},
 	}
 )
@@ -336,7 +346,8 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 			if len(v.SensuHandlers) != 0 {
 				handler = v.SensuHandlers
 			}
-			err := postCheck(auth, tempName, command, event.Namespace, entity, subscription, proxyEntity, handler, assets, publish, interval)
+			alias := fmt.Sprintf("%s/%s", event.Entity.Name, event.Check.Name)
+			err := postCheck(auth, tempName, command, event.Namespace, entity, subscription, proxyEntity, alias, handler, assets, publish, interval)
 			if err != nil {
 				return event, err
 			}
@@ -503,7 +514,7 @@ func authenticate() (Auth, error) {
 }
 
 // post check to sensu-backend-api
-func postCheck(auth Auth, name, command, namespace, entity, subscription, proxyEntity string, handlers, assets []string, publish bool, interval int) error {
+func postCheck(auth Auth, name, command, namespace, entity, subscription, proxyEntity, alias string, handlers, assets []string, publish bool, interval int) error {
 	client := http.DefaultClient
 	client.Transport = http.DefaultTransport
 	// /api/core/v2/namespaces/NAMESPACE/checks/:check_name and PUT
@@ -516,6 +527,8 @@ func postCheck(auth Auth, name, command, namespace, entity, subscription, proxyE
 	if subscription != "" {
 		subs = subscription
 	}
+	annotation := make(map[string]string)
+	annotation[mutatorConfig.RemediationEventAnnotation] = alias
 	check := &v2.Check{
 		Subscriptions: []string{subs},
 		Command:       command,
@@ -530,7 +543,8 @@ func postCheck(auth Auth, name, command, namespace, entity, subscription, proxyE
 			Labels: map[string]string{
 				mutatorConfig.Name: "owner",
 			},
-			CreatedBy: mutatorConfig.Name,
+			Annotations: annotation,
+			CreatedBy:   mutatorConfig.Name,
 		},
 	}
 	if proxyEntity != "" {

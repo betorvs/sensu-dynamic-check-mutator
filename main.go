@@ -249,6 +249,7 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 	}
 	remediations := []RemediationConfig{}
 	for _, v := range checkTemplate {
+		// fmt.Println(v.Name, v.Options)
 		for _, e := range v.ExcludeLabels {
 			if searchLabels(event, e) {
 				return event, nil
@@ -269,7 +270,7 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 					}
 				}
 				if len(v.Options) != count {
-					return event, nil
+					continue
 				}
 				flags = parseCommandOptions(tempArgs)
 			}
@@ -284,7 +285,7 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 					}
 				}
 				if count < 1 {
-					return event, nil
+					continue
 				}
 				args = parseCommandOptions(tempArgs)
 			}
@@ -381,7 +382,6 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 				remediations = append(remediations, remediation)
 			}
 		}
-
 	}
 
 	s, _ := json.Marshal(remediations)

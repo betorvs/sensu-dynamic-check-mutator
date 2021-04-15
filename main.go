@@ -68,7 +68,6 @@ type Config struct {
 	Protocol                     string
 	DefaultCheckSuffixName       string
 	RemediationEventAnnotation   string
-	ProxyAgentSubscription       string
 }
 
 var (
@@ -118,15 +117,6 @@ var (
 			Default:   "default",
 			Usage:     "Handler used to post the result",
 			Value:     &mutatorConfig.CommandHandler,
-		},
-		{
-			Path:      "proxy-agent-subscription",
-			Env:       "",
-			Argument:  "proxy-agent-subscription",
-			Shorthand: "",
-			Default:   "",
-			Usage:     "If this mutator receives an alert from an proxy agent class, it replaces remediation annotation with this subscription.",
-			Value:     &mutatorConfig.ProxyAgentSubscription,
 		},
 		{
 			Path:      "api-backend-user",
@@ -329,12 +319,6 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 				}
 			}
 			entity := fmt.Sprintf("entity:%s", event.Entity.ObjectMeta.Name)
-			// if this mutator is running for events from Proxy entities it cannot schedule it
-			// using it, when you create an event in this proxy entity, add an annotation like
-			// sensu.io/plugins/sensu-dynamic-check-mutator/config/proxy-agent-subscription: entity:agent-adsdad-asdsad
-			if event.Entity.EntityClass == "proxy" {
-				entity = mutatorConfig.ProxyAgentSubscription
-			}
 			assets := []string{}
 			if len(v.SensuAssets) != 0 {
 				assets = v.SensuAssets
@@ -354,6 +338,13 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 			for _, v := range event.Check.Subscriptions {
 				if strings.HasPrefix(v, "entity") {
 					subscription = v
+				}
+			}
+			// if this mutator is running for events from Proxy entities it cannot schedule it
+			// using it, when you create an event in this proxy entity, add an annotation like
+			if event.Entity.EntityClass == "proxy" {
+				if strings.HasPrefix(subscription, "entity") {
+					entity = subscription
 				}
 			}
 			var proxyEntity string

@@ -47,7 +47,6 @@ Flags:
       --default-check-suffix-name string         Default suffix name for unpublished checks (default "dynamic")
   -h, --help                                     help for sensu-dynamic-check-mutator
   -i, --insecure-skip-verify                     skip TLS certificate verification (not recommended!)
-      --proxy-agent-subscription string          If this mutator receives an alert from an proxy agent class, it replaces remediation annotation with this subscription.
       --remediation-event-annotation string      Add an annotation in dynamic check created like remediation-event-alias: event.Entity.Name/event.Check.Name (default "remediation-event-alias")
   -s, --secure                                   Use TLS connection to API
   -t, --trusted-ca-file string                   TLS CA certificate bundle in PEM format

@@ -351,6 +351,11 @@ func executeMutator(event *types.Event) (*types.Event, error) {
 			if v.Subscription != "" {
 				subscription = v.Subscription
 			}
+			for _, v := range event.Check.Subscriptions {
+				if strings.HasPrefix(v, "entity") {
+					subscription = v
+				}
+			}
 			var proxyEntity string
 			if v.ProxyEntityID != "" {
 				temp, valid := extractLabels(event, v.ProxyEntityID)

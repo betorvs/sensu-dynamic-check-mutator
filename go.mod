@@ -1,6 +1,6 @@
 module github.com/betorvs/sensu-dynamic-check-mutator
 
-go 1.15
+go 1.16
 
 require (
 	github.com/sensu-community/sensu-plugin-sdk v0.11.0

@@ -171,14 +171,17 @@ spec:
 
 | Field | What it does | Example |
 | ----- | ------------ | ------- |
+| name | just a name for that config | |
+| command | which command should run | | 
 | bool_args | add flags without any argument. Always include any configured flags | `-k` |
 | arguments | add label.key label.value inside command. Should match at least one. If not, will return event without any change | `deployment ingress-nginx` |
 | options | should match all configured to change the event. Use it when you need to use a different flag but with some content from a label |To use a label.value in the flag `--namespace`, use it: `{"--namespace": "namespace"}`
 | match_labels | If found these label.key=label.value it will change the event | - |
 | exclude_labels | Use this array to exclude some label.key=label.value that doesnt match with your dynamic check | - |  
+| sensu_assets | Use to include an runtime assets in check created by dynamic check| - |
 | occurrences | same occurrences field in [sensu-remediation-handler][4] | default: `[]int{1}` |
 | severities | same severities field in [sensu-remediation-handler][4] | default: `[]int{2}` |
-| publish | bool field. If it is enabled it will not send any information to sensu-remediation-handler | default: `false` |
+| publish | bool field. If it is enabled it will not send any information to sensu-remediation-handler and create a new check with interval | default: `false` |
 | interval | integer field | default: `10` |
 | subscription | string field used to overwrite subscription used in check definition created by sensu-dynamic-check-mutator| default: `""` |
 | name_suffix | string field append in check name a label.value | default: `""` | 
@@ -202,7 +205,7 @@ If you're using an earlier version of sensuctl, you can find the asset on the [B
 
 ### Mutator definition
 
-Maybe is important to add authetication configs `-u dynamic -P ${MUTATOR_PASS} -B sensu-api.k8s.infra.ppro.com -s -t /$PATH_TO_CERTIFICATE/ca.pem`
+Maybe is important to add authetication configs `-u dynamic -P ${MUTATOR_PASS} -B sensu-api.example.com -s -t /$PATH_TO_CERTIFICATE/ca.pem`
 
 ```yml
 ---
@@ -210,12 +213,68 @@ type: Mutator
 api_version: core/v2
 metadata:
   name: sensu-dynamic-check-mutator
-  namespace: default
 spec:
   command: >-
-    sensu-dynamic-check-mutator -c "[{\"name\":\"describe-resource\",\"command\":\"\${{assetPath \\\"kubectl\\\"}}/kubernetes/client/bin/kubectl describe\",\"bool_args\":[\"--no-headers\"],\"arguments\":[\"daemonset\",\"deployment\",\"pod\",\"statefulset\"],\"options\":{\"--namespace\":\"namespace\"},\"match_labels\":{\"sensu-alertmanager-events\":\"owner\"},\"exclude_labels\":[{\"alertname\":\"TargetDown\"},{"alertname": "KubeVersionMismatch"}],\"sensu_assets\":[\"kubectl\"]}]"
+    sensu-dynamic-check-mutator -P ${SENSU_API_PASS} -B sensu-api.example.com -s -t /certs/sensu-ca.pem 
+    --remediation-event-annotation "sensu.io/plugins/sensu-opsgenie-handler/config/remediation-event-alias"
+    -c '[
+      { "name": "describe-resource",
+        "command":"${{assetPath \"kubectl\"}}/kubernetes/client/bin/kubectl describe",
+        "arguments":["daemonset","deployment","pod","statefulset"],
+        "options":{"--namespace":"namespace"},
+        "match_labels":{"sensu-alertmanager-events":"owner"},
+        "exclude_labels":[
+          {"alertname":"TargetDown"},
+        ],
+        "sensu_assets":["kubectl"],
+        "sensu_handlers":["opsgenie_remediation"],
+        "occurrences":[1,2],
+        "severities":[2]},
+      { "name": "describe-node",
+        "command":"${{assetPath \"kubectl\"}}/kubernetes/client/bin/kubectl describe",
+        "arguments":["node"],
+        "match_labels":{"sensu-alertmanager-events":"owner","alertname":"KubeNodeUnreachable","alertname":"KubeNodeNotReady"},
+        "exclude_labels":[
+          {"alertname":"TargetDown"},
+        ],
+        "sensu_assets":["kubectl"],
+        "sensu_handlers":["opsgenie_remediation"],
+        "occurrences":[1,2],
+        "severities":[2]}
+      {"name":"pod-termination-stuck",
+        "command":"${{assetPath \"kubectl\"}}/kubernetes/client/bin/kubectl delete ",
+        "bool_options":["--grace-period=0","--force"],
+        "arguments":["pod"],
+        "options":{"--namespace":"namespace"},
+        "match_labels":{"alertname":"PodTerminationStuck"},
+        "sensu_assets":["kubectl"],
+        "sensu_handlers":["opsgenie_remediation"],
+        "occurrences":[3,4],
+        "severities":[2]}
+    ]'
   runtime_assets:
-  - betorvs/sensu-dynamic-check-mutator
+  - sensu-dynamic-check-mutator
+```
+
+Using sensu-dynamic-check-mutator with `--remediation-event-annotation` and [sensu-opsgenie-handler][6] as a opsgenie_remediation handler we can add remediation action inside the same alert in opsgenie as extra properties and as note. 
+
+Example of remediation handler:
+```yml
+---
+type: Handler
+api_version: core/v2
+metadata:
+  name: remediation
+spec:
+  type: pipe
+  command: sensu-remediation-handler
+  timeout: 10
+  mutator: "sensu-dynamic-check-mutator"
+  runtime_assets:
+  - sensu-remediation-handler
+  env_vars:
+  - "SENSU_API_URL=https://sensu-api.sensu.svc.cluster.local:8080"
+  - "SENSU_API_CERT_FILE=/etc/sensu/tls/ca.pem"
 ```
 
 ## Installation from source
@@ -241,4 +300,5 @@ For more information about contributing to this plugin, see [Contributing][3].
 [3]: https://github.com/sensu/sensu-go/blob/master/CONTRIBUTING.md
 [4]: https://github.com/sensu/sensu-remediation-handler
 [5]: https://github.com/betorvs/sensu-alertmanager-events
+[6]: https://github.com/betorvs/sensu-opsgenie-handler
 
